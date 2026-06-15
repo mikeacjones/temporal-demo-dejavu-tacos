@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dejavu-tacos-config
+  namespace: temporal-dejavu-tacos
+data:
+  DEJAVU_RELOAD: "0"
+  DEJAVU_WORKER_LANGUAGE: python
+  DEJAVU_BACKEND_URL: http://backend:8000
+  TEMPORAL_ADDRESS: demo-dejavu-tacos.a2dd6.tmprl.cloud:7233
+  TEMPORAL_NAMESPACE: demo-dejavu-tacos.a2dd6
+  TEMPORAL_TLS: "true"

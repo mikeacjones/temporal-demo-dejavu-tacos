@@ -1,0 +1,49 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dejavu-tacos
+  namespace: temporal-dejavu-tacos
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`dejavu-tacos.tmprl-demo.cloud`) && PathPrefix(`/api`)
+      services:
+        - name: backend
+          namespace: temporal-dejavu-tacos
+          passHostHeader: true
+          port: 8000
+    - kind: Rule
+      match: Host(`dejavu-tacos.tmprl-demo.cloud`)
+      services:
+        - name: dejavu-tacos-frontend
+          namespace: temporal-dejavu-tacos
+          passHostHeader: true
+          port: 80
+  tls:
+    secretName: dejavu-tacos-tls
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dejavu-tacos-http
+  namespace: temporal-dejavu-tacos
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`dejavu-tacos.tmprl-demo.cloud`) && PathPrefix(`/api`)
+      services:
+        - name: backend
+          namespace: temporal-dejavu-tacos
+          passHostHeader: true
+          port: 8000
+    - kind: Rule
+      match: Host(`dejavu-tacos.tmprl-demo.cloud`)
+      services:
+        - name: dejavu-tacos-frontend
+          namespace: temporal-dejavu-tacos
+          passHostHeader: true
+          port: 80
