@@ -4,6 +4,7 @@ interface WorkflowDiagramProps {
   events: OrderEvent[]
   settings: Settings
   finalStatus: string | null
+  temporalWorkflowUrl?: string | null
 }
 
 interface StepDef {
@@ -59,7 +60,12 @@ const STATUS_LINE: Record<StepStatus | string, string> = {
   retrying: 'bg-yellow-500',
 }
 
-export function WorkflowDiagram({ events, settings, finalStatus }: WorkflowDiagramProps) {
+export function WorkflowDiagram({
+  events,
+  settings,
+  finalStatus,
+  temporalWorkflowUrl,
+}: WorkflowDiagramProps) {
   const isDetailed = settings.presentation_mode === 'detailed'
   const isTemporal = settings.mode === 'temporal'
   const showCompensation = events.some((e) =>
@@ -71,9 +77,27 @@ export function WorkflowDiagram({ events, settings, finalStatus }: WorkflowDiagr
       {/* Mode badge */}
       <div className="mb-3">
         {isTemporal ? (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
+          <a
+            href={temporalWorkflowUrl || undefined}
+            target="_blank"
+            rel="noreferrer"
+            aria-disabled={!temporalWorkflowUrl}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-colors ${
+              temporalWorkflowUrl
+                ? 'hover:bg-purple-500/30 hover:text-purple-100 cursor-pointer'
+                : 'cursor-default'
+            }`}
+            onClick={(event) => {
+              if (!temporalWorkflowUrl) event.preventDefault()
+            }}
+            title={
+              temporalWorkflowUrl
+                ? 'Open this workflow in Temporal UI'
+                : 'Start a Temporal order to open the workflow'
+            }
+          >
             ⚡ Temporal Workflow
-          </span>
+          </a>
         ) : (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30">
             🔗 Direct Service Calls

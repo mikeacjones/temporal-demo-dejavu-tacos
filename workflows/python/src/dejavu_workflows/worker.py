@@ -5,6 +5,7 @@ import asyncio
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from dejavu_tacos.temporal_client import connect_temporal_client
 from dejavu_workflows.activities import (
     authorize_payment_activity,
     capture_payment_activity,
@@ -21,10 +22,7 @@ from dejavu_workflows.order_workflow import TASK_QUEUE, OrderWorkflow
 async def run_worker(client: Client | None = None) -> None:
     """Start the Temporal worker. Accepts an optional pre-connected client."""
     if client is None:
-        import os
-
-        addr = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
-        client = await Client.connect(addr)
+        client = await connect_temporal_client()
 
     worker = Worker(
         client,

@@ -11,6 +11,21 @@ export interface Settings {
   worker_language: WorkerLanguage
 }
 
+export interface TemporalUiInfo {
+  base_url: string
+  namespace: string
+  namespace_url: string
+}
+
+export interface CreateOrderResponse {
+  order_id: string
+  status: string
+  total: number
+  workflow_id?: string
+  run_id?: string
+  temporal_ui_url?: string
+}
+
 export interface MenuItem {
   id: string
   name: string

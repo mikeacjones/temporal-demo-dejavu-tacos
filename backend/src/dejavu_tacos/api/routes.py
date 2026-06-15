@@ -18,6 +18,13 @@ from dejavu_tacos.models import (
     Settings,
     StepStatus,
 )
+from dejavu_tacos.temporal_client import connect_temporal_client
+from dejavu_tacos.temporal_ui import (
+    temporal_namespace,
+    temporal_namespace_url,
+    temporal_ui_base_url,
+    temporal_workflow_url,
+)
 from dejavu_tacos.traditional.handler import process_order_traditional
 
 app = FastAPI(title="Déjà Vu Tacos API")
@@ -39,12 +46,7 @@ _temporal_client = None
 async def get_temporal_client():
     global _temporal_client
     if _temporal_client is None:
-        import os
-
-        from temporalio.client import Client
-
-        addr = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
-        _temporal_client = await Client.connect(addr)
+        _temporal_client = await connect_temporal_client()
     return _temporal_client
 
 
@@ -62,6 +64,15 @@ async def health():
 async def worker_language():
     lang = os.environ.get("DEJAVU_WORKER_LANGUAGE", "python")
     return {"language": lang}
+
+
+@app.get("/api/temporal-ui")
+async def temporal_ui():
+    return {
+        "base_url": temporal_ui_base_url(),
+        "namespace": temporal_namespace(),
+        "namespace_url": temporal_namespace_url(),
+    }
 
 
 @app.get("/api/menu")
@@ -106,23 +117,40 @@ async def create_order(
     config.orders[order_id] = order.model_dump(mode="json")
     config.event_queues[order_id] = asyncio.Queue()
 
+    workflow_id = ""
+    run_id = ""
+    workflow_ui_url = ""
+
     if config.settings.mode == ArchitectureMode.TRADITIONAL:
         background_tasks.add_task(process_order_traditional, order)
     else:
         # Start Temporal workflow (by string name to avoid importing the workflow package)
         client = await get_temporal_client()
-        await client.start_workflow(
+        workflow_id = f"order-{order_id}"
+        handle = await client.start_workflow(
             "OrderWorkflow",
             {
                 "order_id": order_id,
                 "items": [item.model_dump() for item in order_request.items],
                 "total": total,
             },
-            id=f"order-{order_id}",
+            id=workflow_id,
             task_queue="dejavu-tacos",
         )
+        run_id = handle.first_execution_run_id or handle.run_id or ""
+        workflow_ui_url = temporal_workflow_url(
+            workflow_id=workflow_id,
+            run_id=run_id,
+        )
 
-    return {"order_id": order_id, "status": "accepted", "total": total}
+    return {
+        "order_id": order_id,
+        "status": "accepted",
+        "total": total,
+        "workflow_id": workflow_id,
+        "run_id": run_id,
+        "temporal_ui_url": workflow_ui_url,
+    }
 
 
 @app.get("/api/orders/{order_id}")

@@ -6,9 +6,15 @@ interface BackstagePanelProps {
   events: OrderEvent[]
   settings: Settings
   finalStatus: string | null
+  temporalWorkflowUrl?: string | null
 }
 
-export function BackstagePanel({ events, settings, finalStatus }: BackstagePanelProps) {
+export function BackstagePanel({
+  events,
+  settings,
+  finalStatus,
+  temporalWorkflowUrl,
+}: BackstagePanelProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   if (collapsed) {
@@ -63,6 +69,7 @@ export function BackstagePanel({ events, settings, finalStatus }: BackstagePanel
             events={events}
             settings={settings}
             finalStatus={finalStatus}
+            temporalWorkflowUrl={temporalWorkflowUrl}
           />
         )}
       </div>

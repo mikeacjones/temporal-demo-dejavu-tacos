@@ -57,9 +57,9 @@ async def _emit_event(
             pass  # Best effort — don't fail the activity over an SSE event
     else:
         # In-process mode — use shared queue directly
-        from dejavu_tacos.api.events import emit_event
+        from dejavu_tacos.api.events import emit_event as emit_in_process_event
 
-        await _emit_event(
+        await emit_in_process_event(
             order_id,
             step,
             status,

@@ -10,7 +10,15 @@ import { SettingsModal } from './components/SettingsModal'
 import { TemporalCodeView } from './components/TemporalCodeView'
 import { TraditionalArchDiagram } from './components/TraditionalArchDiagram'
 import { useSSE } from './hooks/useSSE'
-import type { CartItem, DemoTab, MenuItem, PhoneScreen, Settings } from './types'
+import type {
+  CartItem,
+  CreateOrderResponse,
+  DemoTab,
+  MenuItem,
+  PhoneScreen,
+  Settings,
+  TemporalUiInfo,
+} from './types'
 
 const DEFAULT_SETTINGS: Settings = {
   mode: 'temporal',
@@ -26,6 +34,8 @@ function App() {
   const [orderId, setOrderId] = useState<string | null>(null)
   const [isOrdering, setIsOrdering] = useState(false)
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+  const [temporalUi, setTemporalUi] = useState<TemporalUiInfo | null>(null)
+  const [temporalWorkflowUrl, setTemporalWorkflowUrl] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const { events, finalStatus, reset: resetSSE } = useSSE(orderId)
@@ -36,12 +46,16 @@ function App() {
     Promise.all([
       fetch('/api/settings').then((r) => r.json()),
       fetch('/api/worker-language').then((r) => r.json()).catch(() => ({ language: 'python' })),
-    ]).then(([backendSettings, langData]) => {
+      fetch('/api/temporal-ui').then((r) => r.json()).catch(() => null),
+    ]).then(([backendSettings, langData, temporalUiData]) => {
       setSettings((prev) => ({
         ...prev,
         ...backendSettings,
         worker_language: langData.language || 'python',
       }))
+      if (temporalUiData?.namespace_url) {
+        setTemporalUi(temporalUiData)
+      }
     }).catch(() => {})
   }, [])
 
@@ -57,6 +71,7 @@ function App() {
       })
       // Reset order state when settings change
       setOrderId(null)
+      setTemporalWorkflowUrl(null)
       setScreen('menu')
       setCart([])
       resetSSE()
@@ -102,8 +117,9 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: cart }),
       })
-      const data = await res.json()
+      const data = (await res.json()) as CreateOrderResponse
       setOrderId(data.order_id)
+      setTemporalWorkflowUrl(data.temporal_ui_url || null)
       setScreen('tracking')
     } finally {
       setIsOrdering(false)
@@ -112,6 +128,7 @@ function App() {
 
   const handleNewOrder = useCallback(() => {
     setOrderId(null)
+    setTemporalWorkflowUrl(null)
     setCart([])
     setScreen('menu')
     resetSSE()
@@ -187,15 +204,33 @@ function App() {
 
         <div className="flex items-center gap-3">
           {/* Mode indicator */}
-          <span
-            className={`text-xs px-2 py-1 rounded-full font-medium ${
-              settings.mode === 'temporal'
-                ? 'bg-purple-500/20 text-purple-300'
-                : 'bg-red-500/20 text-red-300'
-            }`}
-          >
-            {settings.mode === 'temporal' ? '⚡ Temporal' : '🔗 Traditional'}
-          </span>
+          {settings.mode === 'temporal' ? (
+            <a
+              href={temporalUi?.namespace_url || undefined}
+              target="_blank"
+              rel="noreferrer"
+              aria-disabled={!temporalUi?.namespace_url}
+              className={`text-xs px-2 py-1 rounded-full font-medium bg-purple-500/20 text-purple-300 transition-colors ${
+                temporalUi?.namespace_url
+                  ? 'hover:bg-purple-500/30 hover:text-purple-100 cursor-pointer'
+                  : 'cursor-default'
+              }`}
+              onClick={(event) => {
+                if (!temporalUi?.namespace_url) event.preventDefault()
+              }}
+              title={
+                temporalUi?.namespace
+                  ? `Open ${temporalUi.namespace} in Temporal UI`
+                  : 'Open Temporal namespace'
+              }
+            >
+              ⚡ Temporal
+            </a>
+          ) : (
+            <span className="text-xs px-2 py-1 rounded-full font-medium bg-red-500/20 text-red-300">
+              🔗 Traditional
+            </span>
+          )}
 
           {/* Settings gear */}
           <button
@@ -217,6 +252,7 @@ function App() {
               events={events}
               settings={settings}
               finalStatus={finalStatus}
+              temporalWorkflowUrl={temporalWorkflowUrl}
             />
             {/* Third column: complexity diagram (traditional) or code view (temporal) */}
             <div className="min-w-[33vw] flex-1 flex-shrink-0 bg-gray-850 border-l border-gray-700 overflow-hidden">

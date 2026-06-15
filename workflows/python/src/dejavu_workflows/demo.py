@@ -9,16 +9,13 @@ from __future__ import annotations
 import asyncio
 
 import uvicorn
-from temporalio.client import Client
 
+from dejavu_tacos.temporal_client import connect_temporal_client
 from dejavu_workflows.worker import run_worker
 
 
 async def _run_combined() -> None:
-    import os
-
-    addr = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
-    client = await Client.connect(addr)
+    client = await connect_temporal_client()
 
     # Start the Temporal worker in the background
     worker_task = asyncio.create_task(run_worker(client))
