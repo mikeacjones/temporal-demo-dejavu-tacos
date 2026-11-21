@@ -85,7 +85,10 @@ instead.
 On the hosted demo the viewscreen loads the Temporal UI when the page opens, on the
 namespace's newest run, behind the empty state. Each order then switches the loaded UI to
 the new Workflow in place, in about a second, where a fresh load took 6 to 16 seconds. It
-waits for the UI to finish rendering first, since a switch before that is a full reload. The
+waits for the UI to finish rendering first, since a switch before that is a full reload, and
+goes by way of the namespace's schedules page: the UI's run page only starts its 10-second
+refresh of pending activities, which is where retry attempts come from, when it mounts, so a
+direct run-to-run switch would never show a retry. The
 UI's sidebar starts collapsed (its own `navOpen` setting), and an injected stylesheet hides
 its side, top and bottom bars; the selectors are temporalio/ui 2.58.1's, the version the
 platform pins. − and + scale the frame (100 to 160%), remembered per browser. `docker compose up --build reinvent-example` serves it at

@@ -35,6 +35,27 @@ function sameOrigin(url: string): boolean {
   }
 }
 
+function follow(doc: Document | null, url: string) {
+  if (!doc?.body) return
+  const a = doc.createElement('a')
+  a.href = url
+  doc.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
+function waitFor(test: () => boolean, ms: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const started = Date.now()
+    const id = window.setInterval(() => {
+      if (test() || Date.now() - started > ms) {
+        window.clearInterval(id)
+        resolve(test())
+      }
+    }, 100)
+  })
+}
+
 function readZoom(): number {
   try {
     const raw = localStorage.getItem(ZOOM_KEY)
@@ -89,18 +110,37 @@ export function Viewscreen({ uiBase, namespace, timelineUrl, workflowId, tempora
     }
   }, [warmUrl])
 
-  // Follow a link inside the loaded UI: its router switches pages without
-  // reloading, so only the new Workflow's data is fetched.
+  const nsBase = embeddable ? `${uiBase.replace(/\/$/, '')}/namespaces/${encodeURIComponent(namespace)}` : null
+  const [switching, setSwitching] = useState(false)
+  const switchSeq = useRef(0)
+
+  // Switch the loaded UI to another run without reloading it: follow a link
+  // inside it, so its router changes page and fetches only the new run. It goes
+  // by way of the namespace's schedules page: the UI's run page starts its 10s
+  // refresh of pending activities (where retry attempts come from) only when it
+  // mounts, and stops it on a run change (temporalio/ui 2.58.1,
+  // workflow-run-layout.svelte), so a direct run-to-run switch would never show
+  // a retry. Seen on test: direct, one describe call in 25s; via schedules, one
+  // every 10s; neither reloads the page.
   const openInside = useCallback((url: string) => {
-    const doc = frameRef.current?.contentDocument
-    if (!doc?.body) return false
-    const a = doc.createElement('a')
-    a.href = url
-    doc.body.appendChild(a)
-    a.click()
-    a.remove()
+    const frame = frameRef.current
+    if (!frame?.contentDocument?.body || !nsBase) return false
+    const seq = ++switchSeq.current
+    const path = () => frame.contentWindow?.location.pathname ?? ''
+    const target = new URL(url, window.location.href).pathname
+    setSwitching(true)
+    void (async () => {
+      if (/\/workflows\/[^/]+\/[^/]+/.test(path())) {
+        follow(frame.contentDocument, `${nsBase}/schedules`)
+        await waitFor(() => path().endsWith('/schedules'), 5000)
+      }
+      if (seq !== switchSeq.current) return
+      follow(frame.contentDocument, url)
+      await waitFor(() => path() === target, 10000)
+      if (seq === switchSeq.current) setSwitching(false)
+    })()
     return true
-  }, [])
+  }, [nsBase])
 
   // A full load of the UI, when the frame has to fall back to one.
   const loadFully = useCallback((url: string) => {
@@ -201,6 +241,10 @@ export function Viewscreen({ uiBase, namespace, timelineUrl, workflowId, tempora
           </p>
         ) : timelineUrl === null ? (
           <p className="screen-empty">Start an order to see the Workflow</p>
+        ) : switching ? (
+          <p className="screen-empty" role="status">
+            Locking on to {workflowId}
+          </p>
         ) : null}
       </div>
     </section>
