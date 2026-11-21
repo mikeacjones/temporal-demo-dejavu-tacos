@@ -80,7 +80,15 @@ The timeline is an iframe of the Temporal UI, which only allows framing from its
 (`X-Frame-Options: SAMEORIGIN`). On the hosted demo the platform serves the namespace's
 public, read-only Temporal UI on the demo's own host, so the timeline appears in place.
 Locally the dev server's UI on `:8233` is another origin, so the viewscreen shows a link
-instead. `docker compose up --build reinvent-example` serves it at
+instead.
+
+On the hosted demo the viewscreen loads the Temporal UI when the page opens, on the
+namespace's newest run, behind the empty state. Each order then switches the loaded UI to
+the new Workflow in place, in about a second, where a fresh load took 6 to 16 seconds. It
+waits for the UI to finish rendering first, since a switch before that is a full reload. The
+UI's sidebar starts collapsed (its own `navOpen` setting), and an injected stylesheet hides
+its side, top and bottom bars; the selectors are temporalio/ui 2.58.1's, the version the
+platform pins. − and + scale the frame (100 to 160%), remembered per browser. `docker compose up --build reinvent-example` serves it at
 http://localhost:5175/_reinvent_example/.
 
 ## Settings

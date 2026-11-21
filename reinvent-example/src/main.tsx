@@ -1,5 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import '@fontsource/antonio/400.css'
+import '@fontsource/antonio/700.css'
 import './phone/phone.css'
 import './console.css'
 import { api, isApi } from './api'

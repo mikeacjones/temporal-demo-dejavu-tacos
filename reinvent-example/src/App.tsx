@@ -5,26 +5,15 @@ import { Checkout } from './phone/Checkout'
 import { Menu } from './phone/Menu'
 import { OrderTracker } from './phone/OrderTracker'
 import { PhoneFrame } from './phone/PhoneFrame'
-import type { CartItem, CreateOrderResponse, MenuItem, PhoneScreen, Settings } from './phone/types'
+import type { CartItem, CreateOrderResponse, MenuItem, PhoneScreen, Settings, TemporalUiInfo } from './phone/types'
 import { useSSE } from './phone/useSSE'
+import { Viewscreen } from './Viewscreen'
 
 const DEFAULT_SETTINGS: Settings = {
   mode: 'temporal',
   failure_scenario: 'store_connectivity',
   presentation_mode: 'detailed',
   worker_language: 'python',
-}
-
-// The timeline can only be framed from the same origin: the Temporal UI sends
-// X-Frame-Options: SAMEORIGIN. On the demo host the operator serves the namespace's
-// public, read-only UI at /_temporal/primary/, so the backend's links are same-origin.
-// Anywhere else (a laptop's dev server on :8233, Temporal Cloud) gets a link instead.
-function sameOrigin(url: string): boolean {
-  try {
-    return new URL(url, window.location.href).origin === window.location.origin
-  } catch {
-    return false
-  }
 }
 
 export default function App() {
@@ -38,19 +27,23 @@ export default function App() {
   const [storeOnline, setStoreOnline] = useState<boolean | null>(null)
   const [busy, setBusy] = useState<'store' | 'ready' | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [temporalUi, setTemporalUi] = useState<TemporalUiInfo | null>(null)
 
   const { events, finalStatus, reset: resetSSE } = useSSE(orderId)
 
-  // Both reads start together. The store read also registers this page's session,
-  // which starts offline in the store-connectivity scenario.
+  // The three reads start together. The store read also registers this page's
+  // session, which starts offline in the store-connectivity scenario; the UI
+  // address lets the viewscreen start loading the Temporal UI before any order.
   useEffect(() => {
     Promise.all([
       fetch(api('/settings')).then((r) => r.json() as Promise<Partial<Settings>>),
       fetch(api('/store/status')).then((r) => r.json() as Promise<{ online: boolean }>),
+      fetch(api('/temporal-ui')).then((r) => r.json() as Promise<TemporalUiInfo>),
     ])
-      .then(([backendSettings, store]) => {
+      .then(([backendSettings, store, ui]) => {
         setSettings((prev) => ({ ...prev, ...backendSettings }))
         setStoreOnline(store.online)
+        setTemporalUi(ui)
       })
       .catch(() => setNotice('Could not reach the tacos backend. Reload to try again.'))
   }, [])
@@ -163,85 +156,81 @@ export default function App() {
     }
   }
 
-  const storeLabel = storeOnline === null ? 'UNKNOWN' : storeOnline ? 'ONLINE' : 'OFFLINE'
+  const storeLabel = storeOnline === null ? 'unknown' : storeOnline ? 'online' : 'offline'
   const orderOpen = orderId !== null && finalStatus === null
 
   return (
-    <div className="console">
-      <header className="console-header">
-        <div className="lights" aria-hidden="true">
-          {Array.from({ length: 6 }, (_, i) => (
-            <span key={i} className={`light light-${i % 3}`} />
-          ))}
-        </div>
-        <h1>Déjà Vu Tacos · Workflow viewscreen</h1>
-        <div className="lights" aria-hidden="true">
-          {Array.from({ length: 6 }, (_, i) => (
-            <span key={i} className={`light light-${(i + 1) % 3}`} />
-          ))}
-        </div>
+    <div className="frame">
+      <div className="arm" aria-hidden="true">
+        <div className="arm-top" />
+        <div className="arm-seg" />
+        <div className="arm-seg arm-seg-short" />
+        <div className="arm-foot" />
+      </div>
+      <header className="head">
+        <h1>Déjà Vu Tacos · Workflow Viewscreen</h1>
+        <span className="head-meta" aria-hidden="true">
+          Deck 04
+        </span>
       </header>
+      <div className="bar bar-top" aria-hidden="true">
+        <span className="c-periwinkle" style={{ flex: 5 }} />
+        <span className="c-orange" style={{ flex: 0.3 }} />
+        <span className="c-lilac" style={{ flex: 2 }} />
+        <span className="c-peach" style={{ flex: 0.6 }} />
+      </div>
 
-      <section className="station station-phone" aria-label="Customer app">
-        <div className="phone-well">
-          <PhoneFrame chrome="linear-gradient(to right, #f97316, #ef4444)" background="#fff7ed" foreground="#1f2937">
-            {renderPhone()}
-          </PhoneFrame>
-        </div>
-
-        <div className="controls" aria-label="Kitchen controls">
-          <div className="readout" data-status={storeOnline ? 'completed' : 'waiting'} aria-live="polite">
-            <span className="lamp" aria-hidden="true" />
-            <span>Store link: {storeLabel}</span>
+      <main className="body">
+        <section className="station" aria-label="Customer app">
+          <div className="phone-well">
+            <PhoneFrame chrome="linear-gradient(to right, #f97316, #ef4444)" background="#fff7ed" foreground="#1f2937">
+              {renderPhone()}
+            </PhoneFrame>
           </div>
-          <button
-            type="button"
-            className="big-button big-button-cyan"
-            onClick={reconnectStore}
-            disabled={busy !== null || storeOnline === true}
-          >
-            {busy === 'store' ? 'Reconnecting…' : 'Reconnect store'}
-          </button>
-          <button
-            type="button"
-            className="big-button big-button-amber"
-            onClick={markReady}
-            disabled={busy !== null || !orderOpen}
-            title={orderOpen ? 'Send the order_ready Signal to the Workflow' : 'Available while an order is open'}
-          >
-            {busy === 'ready' ? 'Signalling…' : 'Mark ready'}
-          </button>
-          {notice && (
-            <p className="notice" role="status">
-              {notice}
-            </p>
-          )}
-        </div>
-      </section>
+          <div className="controls" aria-label="Kitchen controls">
+            {notice && (
+              <p className="notice" role="status">
+                {notice}
+              </p>
+            )}
+            <div className="status" data-status={storeOnline ? 'completed' : 'waiting'} aria-live="polite">
+              <span className="lamp" aria-hidden="true" />
+              <span>Store link {storeLabel}</span>
+            </div>
+            <button
+              type="button"
+              className="pill pill-a"
+              onClick={reconnectStore}
+              disabled={busy !== null || storeOnline === true}
+            >
+              {busy === 'store' ? 'Reconnecting…' : 'Reconnect store'}
+            </button>
+            <button
+              type="button"
+              className="pill pill-b"
+              onClick={markReady}
+              disabled={busy !== null || !orderOpen}
+              title={orderOpen ? 'Send the order_ready Signal to the Workflow' : 'Available while an order is open'}
+            >
+              {busy === 'ready' ? 'Signalling…' : 'Mark ready'}
+            </button>
+          </div>
+        </section>
 
-      <section className="station station-screen" aria-label="Workflow timeline">
-        <div className="screen-head">
-          <span className="screen-label">Viewscreen</span>
-          <span className="screen-id">{workflowId ?? 'No Workflow yet'}</span>
-        </div>
-        <div className="viewscreen">
-          {settings.mode !== 'temporal' ? (
-            <p className="screen-empty">The backend is set to the traditional architecture, so orders run without a Workflow.</p>
-          ) : timelineUrl === null ? (
-            <p className="screen-empty">Start an order to see the Workflow</p>
-          ) : sameOrigin(timelineUrl) ? (
-            // A new key per order loads a fresh frame for each Workflow.
-            <iframe key={timelineUrl} src={timelineUrl} title={`Timeline of ${workflowId ?? 'the order Workflow'}`} />
-          ) : (
-            <p className="screen-empty">
-              This Temporal UI is on another origin and refuses to be framed.{' '}
-              <a href={timelineUrl} target="_blank" rel="noreferrer">
-                Open the timeline in a new tab
-              </a>
-            </p>
-          )}
-        </div>
-      </section>
+        <Viewscreen
+          uiBase={temporalUi?.base_url ?? null}
+          namespace={temporalUi?.namespace ?? null}
+          timelineUrl={timelineUrl}
+          workflowId={workflowId}
+          temporalMode={settings.mode === 'temporal'}
+        />
+      </main>
+
+      <div className="bar bar-bottom" aria-hidden="true">
+        <span className="c-tan" style={{ flex: 2 }} />
+        <span className="c-peach" style={{ flex: 0.3 }} />
+        <span className="c-lilac" style={{ flex: 5 }} />
+      </div>
     </div>
   )
 }
