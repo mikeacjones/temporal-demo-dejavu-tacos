@@ -68,6 +68,21 @@ The Temporal UI at http://localhost:8233 shows actual workflow executions with f
 
 ![Temporal UI](docs/screenshots/temporal-ui-complete.png)
 
+### 6. The Workflow viewscreen (`reinvent-example/`)
+
+A second, standalone web app: the phone on the left and the order's Workflow timeline on
+the right, which loads the new Workflow each time an order is placed. Two console buttons
+stand in for the kitchen display: **Reconnect store** ends the store-offline retries and
+**Mark ready** sends the `order_ready` Signal. It uses the same backend and Workers as the
+main app and lives under `/_reinvent_example/`.
+
+The timeline is an iframe of the Temporal UI, which only allows framing from its own origin
+(`X-Frame-Options: SAMEORIGIN`). On the hosted demo the platform serves the namespace's
+public, read-only Temporal UI on the demo's own host, so the timeline appears in place.
+Locally the dev server's UI on `:8233` is another origin, so the viewscreen shows a link
+instead. `docker compose up --build reinvent-example` serves it at
+http://localhost:5175/_reinvent_example/.
+
 ## Settings
 
 Click the path button at the top right (it shows the current architecture and failure scenario) to configure:
@@ -118,6 +133,7 @@ The code view opens on the active worker's language, with a tab per language to 
 ```
 ├── frontend/             # React + Vite + TypeScript + Tailwind
 │   └── src/data/         # Language-specific code definitions for the code viewer
+├── reinvent-example/     # Workflow viewscreen: phone + framed timeline, /_reinvent_example/
 ├── backend/              # FastAPI + mock services (always Python)
 ├── workflows/
 │   ├── python/           # Python worker — temporalio SDK

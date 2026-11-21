@@ -163,3 +163,16 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  # ── Workflow viewscreen example (nginx + static build, /_reinvent_example/) ──
+  # The phone app beside the order's Workflow timeline. Locally the timeline is a
+  # link: the dev server's UI on :8233 is another origin and refuses to be framed.
+  reinvent-example:
+    build:
+      context: .
+      dockerfile: docker/reinvent-example.Dockerfile
+    ports:
+      - "5175:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
